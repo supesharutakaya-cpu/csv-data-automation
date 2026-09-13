@@ -1,0 +1,11 @@
+id,name,email,date,amount,category
+S001, 架空レコード01 ,sample01@example.com,2026/1/5, 1200.50 ,サンプルA
+S002,架空レコード02,sample02@example.com,20260206,0,サンプルB
+S003,架空レコード03,sample03@example.com,2024-02-29,-10.25,サンプルB
+D001,架空重複01,duplicate01@example.com,2026-01-10,50,サンプルA
+D001,架空重複02,duplicate02@example.com,2026-01-11,60,サンプルA
+E001,,blank-name@example.com,2026-01-12,100,サンプルA
+E002,架空メールエラー,invalid-email,2026-01-13,100,サンプルA
+E003,架空日付エラー,date-error@example.com,2026-02-30,100,サンプルA
+E004,架空数値エラー,amount-error@example.com,2026-01-15,数値ではない,サンプルA
+E005,,invalid-email,2026-13-01,abc,

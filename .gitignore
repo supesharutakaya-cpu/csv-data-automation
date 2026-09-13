@@ -1,0 +1,69 @@
+﻿# ローカルのPython環境
+.venv/
+__pycache__/
+*.py[cod]
+
+# テスト・解析・パッケージ作成の一時ファイル
+.pytest_cache/
+.test-tmp/
+.pip-cache/
+.tmp/
+.hypothesis/
+.tox/
+.nox/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+coverage.json
+coverage.lcov
+lcov.info
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# CSVは保存場所を問わず原則公開しない（拡張子の大小文字を含む）
+*.[cC][sS][vV]
+
+# 公開用の架空サンプルだけを、フォルダー単位でなくファイル名で許可
+# 完全な架空データのみ使用する。実データへの差し替えは禁止
+!/samples/public/example.csv
+# サンプルを増やす場合も、確認済みのファイル名をここへ個別に追加する
+
+# 実データ置き場：公開例外は空フォルダー保持用ファイルのみ
+/data/*
+!/data/.gitkeep
+# 入力原本は必ず除外する（公開用サンプルはdataの外に置く）
+/data/input.csv
+
+# 出力・バックアップ：空フォルダー保持用ファイルのみ許可
+/output/*
+!/output/.gitkeep
+
+# 処理ログ：空フォルダー保持用ファイルのみ許可
+/logs/*
+!/logs/.gitkeep
+
+# 他の場所に作られた処理ログ・バックアップも公開しない
+*.log
+*.log.*
+*.bak
+*.backup
+*.old
+*.orig
+*.previous
+*.restore
+*~
+backup/
+backups/
+.runs/
+
+# 秘密情報：値を含まない設定例.env.exampleだけ許可
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
