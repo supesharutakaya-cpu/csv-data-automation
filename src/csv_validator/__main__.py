@@ -26,5 +26,15 @@ def main(argv: list[str] | None = None) -> int:
     return 1 if result.errors else 0
 
 
+def cli(argv: list[str] | None = None) -> int:
+    """実際のCLI起動時だけ出力をUTF-8にする。main()の呼び出し元は変更しない。"""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8", errors="backslashreplace")
+        # StringIO等、再設定機能のないホスト提供ストリームはそのまま使用する。
+    return main(argv)
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(cli())

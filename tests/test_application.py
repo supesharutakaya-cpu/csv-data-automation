@@ -1,5 +1,6 @@
 import csv
 import hashlib
+import io
 import os
 from pathlib import Path
 import subprocess
@@ -192,17 +193,77 @@ def test_cli_summary_and_exit_status(project, monkeypatch, capsys, has_errors, e
     assert "test@example.com" not in captured.out
 
 
-def test_cli_processing_failure(monkeypatch, capsys):
+def test_cli_processing_failure(project, monkeypatch, capsys):
     def fail(*args):
         raise ProcessingError("CSVが空です。")
 
     monkeypatch.setattr("csv_validator.__main__.run_project", fail)
+    original_stdout, original_stderr = sys.stdout, sys.stderr
     assert main([]) == 2
+    assert sys.stdout is original_stdout and sys.stderr is original_stderr
     assert "CSVが空です" in capsys.readouterr().err
+
+    # CLI専用ラッパーも、reconfigureがない/呼び出せない捕捉ストリームで動く。
+    from csv_validator.__main__ import cli
+
+    class HostCapture(io.StringIO):
+        reconfigure = None
+
+    for capture_type in (io.StringIO, HostCapture):
+        stdout, stderr = capture_type(), capture_type()
+        with monkeypatch.context() as capture_patch:
+            capture_patch.setattr(sys, "stdout", stdout)
+            capture_patch.setattr(sys, "stderr", stderr)
+            with pytest.raises(SystemExit) as help_exit:
+                cli(["--help"])
+            assert help_exit.value.code == 0
+            assert "入力文字コード" in stdout.getvalue()
+            assert cli([]) == 2
+            assert "処理エラー: CSVが空です。" in stderr.getvalue()
+            assert not stdout.closed and not stderr.closed
+
+    # 実際のTextIOWrapperを使う子プロセスでもstderrがUTF-8になることを確認。
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "cp1252"
+    env["PYTHONUTF8"] = "0"
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
+    script = (
+        "import csv_validator.__main__ as command\n"
+        "from csv_validator.application import ProcessingError\n"
+        "def fail(*args):\n"
+        "    raise ProcessingError('CSVが空です。')\n"
+        "command.run_project = fail\n"
+        "raise SystemExit(command.cli([]))\n"
+    )
+    process = subprocess.run(
+        [sys.executable, "-B", "-c", script],
+        cwd=project, env=env, capture_output=True, check=False,
+    )
+    assert process.returncode == 2, process.stderr
+    assert process.stdout == b""
+    assert process.stderr.decode("utf-8").strip() == "処理エラー: CSVが空です。"
 
 
 def test_windows_entrypoint_help_from_other_directory(project):
-    entry = Path(__file__).resolve().parents[1] / "run.py"
-    process = subprocess.run([sys.executable, "-B", str(entry), "--help"], cwd=project, capture_output=True, check=False)
-    assert process.returncode == 0
-    assert b"--encoding" in process.stdout
+    root = Path(__file__).resolve().parents[1]
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "cp1252"
+    env["PYTHONUTF8"] = "0"
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["PYTHONPATH"] = str(root / "src")
+    # 親pytestのUTF-8設定に依存せず、両方のCLI入口を検証する。
+    for entrypoint in ([str(root / "run.py")], ["-m", "csv_validator"]):
+        process = subprocess.run(
+            [sys.executable, "-B", *entrypoint, "--help"],
+            cwd=project,
+            env=env,
+            capture_output=True,
+            check=False,
+        )
+        assert process.returncode == 0, process.stderr
+        assert process.stderr == b""
+        help_text = process.stdout.decode("utf-8")
+        assert "--encoding" in help_text
+        assert "入力文字コード" in help_text
+        assert "CSVをローカルで検証し" in help_text
