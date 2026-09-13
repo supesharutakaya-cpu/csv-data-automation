@@ -1,86 +1,52 @@
-# ローカルCSVデータ検証ツール
+[日本語 / Japanese](README_ja.md)
 
-企業のCSVをローカルPC上で検証し、正常行と修正が必要な行に分離するWindows向けPythonツールです。**外部AI/APIへCSVデータを送信しない、ローカル処理専用のツールです。**実行時はPython標準ライブラリだけを使用します。
+# Local CSV Validator
 
-## できること
+Validate business CSV files on a Windows PC, normalize common formatting issues, and separate usable records from rows that need attention.
 
-- 全項目の前後の空白・タブ・改行・全角空白を除去
-- 必須項目、重複ID、メール形式、実在する日付、数値を検証
-- 日付を `YYYY-MM-DD` に統一
-- 正常行を `output/valid.csv`、異常行を `output/errors.csv` に保存
-- 異常行ごとに複数の理由を `error_reason` に記録
-- コンソールとログへ件数を表示・保存
+**Local-only processing. No CSV data is sent to external AI, APIs, or web services. The input file is never overwritten, moved, or deleted by the tool.**
 
-検証ルールとファイル操作を分離し、pytestで正常系・異常系・ファイル保護を検証します。
-
-## 安全性の考え方
-
-- `data/input.csv` は読み取り専用で開きます。削除・移動・上書きしません。
-- ツールにはネットワーク通信、外部コマンド実行、AI連携機能がありません。
-- 書き込み先はこのプロジェクト内の `output/` と `logs/` です。
-- 管理者権限、PowerShellのExecutionPolicy変更、OS設定変更は不要です。
-- シンボリックリンク・ジャンクション・ハードリンクのある入出力パスは拒否します。
-- ログ・コンソールにCSVの値は出しません。件数、固定のエラー説明、処理時刻を記録します。
-- 出力を事前作成し、前回の出力を `output/.runs/<実行ID>/*.previous` に保存してから更新します。
-- 通常の更新失敗時は更新済み出力を復元します。削除対象は自分で作成したロックと、復元時に取り消す今回の新規出力だけです。入力やフォルダーの一括削除は行いません。
-- `.gitignore` で実データ・出力・ログ・仮想環境を公開対象から除外します。既にGit管理されているファイルには効かないため、公開前にステージ内容を確認してください。
-
-出力とバックアップには入力由来の情報が含まれます。暗号化や匿名化は行わないため、社内の保管ルールに従ってください。
-
-## 必要環境
-
-- Windows 10 / 11
-- Python 3.12以上（`Path.is_junction()` を使用）
-- プロジェクト内へ書き込める一般ユーザー権限
-- テスト時のみpytest 8系
-
-動作確認済みの環境では `.venv\Scripts\python.exe` のPython 3.13.15を使用します。
-
-## 公開用サンプルで試す
-
-[samples/public/example.csv](samples/public/example.csv) は**完全な架空データ**です。実在人物・実在企業の情報は使っていません。名前は「架空レコード」等の識別用ラベル、メールは例示用ドメイン `example.com` または意図的に不正な文字列です。
-
-| ID | 確認できること |
+| At a glance | |
 | --- | --- |
-| `S001` | 前後の空白除去、スラッシュ区切りの日付の正規化 |
-| `S002` | 8桁の日付の正規化、数値0 |
-| `S003` | うるう年の実在日付、負の小数 |
-| `D001`（2行） | 重複IDの全該当行を検出 |
-| `E001` | nameの必須空欄 |
-| `E002` | 不正なメール形式 |
-| `E003` | 存在しない日付 |
-| `E004` | 数値ではないamount |
-| `E005` | 複数の問題を1行のerror_reasonへ記録 |
+| Validation | Required fields, duplicate IDs, email format, calendar dates, and numeric amounts |
+| Results | `valid.csv` and `errors.csv`, with multiple error reasons per row |
+| Safety | Read-only input access, output backups, recovery on ordinary write failures, and logs without sensitive row values |
+| Quality | **82 automated tests passing**, including CLI, failure recovery, and input preservation checks |
+| Runtime | Windows · Python 3.12+ · Standard library only; no runtime packages required |
 
-### 1. プロジェクトのフォルダーでPowerShellを開く
+Validation rules are separate from file handling, making the business logic straightforward to review and test. Documentation is available in English and Japanese. **CLI messages, log messages, and error reasons are currently in Japanese.** This documentation does not change the application's behavior.
 
-GitHubの「Code」→「Download ZIP」で取得して展開するなどして、`README.md` と `run.py` があるフォルダーを開きます。エクスプローラーのアドレスバーに `powershell` と入力してEnterを押すと、そのフォルダーでPowerShellを起動できます。管理者権限は不要です。
+## Quick start
 
-以下はすべてプロジェクトルートで実行します。
+### 1. Open the project in PowerShell
 
-### 2. 専用のPython環境を用意する
+Download and extract the repository, then open the folder containing `README.md` and `run.py`. In File Explorer, type `powershell` into the address bar and press Enter.
 
-Python 3.12以上がインストールされたPCで、`.venv` がない場合だけ実行します。
+Run the commands below from that project folder. Administrator privileges are not required.
+
+### 2. Prepare a virtual environment
+
+Install Python 3.12 or later if it is not already available. Create a project-local environment **only if `.venv` does not exist**:
 
 ```powershell
 py -3 -m venv .venv
 ```
 
-既に `.venv` がある場合は作り直さず、バージョンだけ確認してください。
+If the environment already exists, keep it and check its version:
 
 ```powershell
 & '.\.venv\Scripts\python.exe' --version
 ```
 
-`Activate.ps1` は実行しません。ExecutionPolicy変更やシステム全体へのパッケージ導入は不要です。CSV検証だけなら追加パッケージも必要ありません。
+There is no need to activate the environment, run `Activate.ps1`, change PowerShell's ExecutionPolicy, or install packages globally. Validation itself needs no additional packages.
 
-### 3. 公開サンプルを入力先へコピーする
+### 3. Copy the public sample without overwriting existing input
 
-**新しく取得したプロジェクトで試してください。既存の `data/input.csv` がある場合は上書きせず停止します。** 実データを保管しているフォルダーとは別にプロジェクトを展開してください。
+Use a fresh copy of the project for this walkthrough. The following command stops if `data/input.csv` already exists. If it does, extract the project into a separate folder instead of replacing your data.
 
 ```powershell
 if (Test-Path -LiteralPath '.\data\input.csv') {
-    throw '入力ファイルが既にあります。別に展開したプロジェクトで試してください。'
+    throw 'Input already exists. Use a fresh copy of the project instead of overwriting it.'
 } else {
     New-Item -ItemType Directory -Path '.\data' -Force | Out-Null
     $samplePath = Join-Path (Get-Location) 'samples/public/example.csv'
@@ -89,172 +55,240 @@ if (Test-Path -LiteralPath '.\data\input.csv') {
 }
 ```
 
-最後の `$false` は「上書きしない」の指定です。**コピーが成功した場合だけ**次へ進んでください。公開サンプルそのものは変更せず残ります。
+The final `$false` disables overwriting, including if a destination file appears after the initial check. **Continue only if the copy succeeds.** The public sample remains unchanged.
 
-### 4. CSVを検証する
+### 4. Run validation
 
 ```powershell
 & '.\.venv\Scripts\python.exe' -B '.\run.py'
 ```
 
-公開サンプルでの結果:
+The sample produces this console summary:
 
 ```text
 総件数: 10
 正常件数: 3
 エラー件数: 7
 重複件数: 2
-出力: output/valid.csv, output/errors.csv
-ログ: logs/validation_<実行ID>.log
 ```
 
-直後に `$LASTEXITCODE` を入力すると `1` になります。意図的なエラーを検出して出力まで完了した結果で、プログラムの故障ではありません。
+These labels mean **10 total rows, 3 valid rows, 7 error rows, and 2 rows with duplicate IDs**. Output and log paths are also printed.
 
-### 5. 自分のCSVを扱う場合
+Enter `$LASTEXITCODE` immediately afterward to inspect the exit code. The sample returns **1** because it deliberately includes invalid rows; processing and output generation have completed successfully.
 
-入力仕様に合ったCSVをローカルの `data/input.csv` として用意します。既存ファイルの扱いは自身の保管ルールに従い、原本を保護してください。
+### 5. Use your own CSV
 
-入力がWindowsのCP932（日本語Shift-JIS系）の場合:
+Prepare `data/input.csv` according to the schema below, following your own data-retention rules. The application reads that file without changing it.
+
+UTF-8, with or without a BOM, is the default input encoding. For Windows CP932 input, use:
 
 ```powershell
 & '.\.venv\Scripts\python.exe' -B '.\run.py' --encoding cp932
 ```
 
-文字コードは自動推測しません。UTF-8（BOMあり／なし）が既定です。実行時のカレントフォルダーにかかわらず、`run.py` のあるプロジェクトを基準に入出力します。
+Encoding is selected explicitly, not guessed. Input and output paths are relative to the project containing `run.py`, regardless of the shell's current directory.
 
-ヘルプは `& '.\.venv\Scripts\python.exe' -B '.\run.py' --help` で表示できます。
+To see the available option:
 
-## GitHubへ公開する範囲
+```powershell
+& '.\.venv\Scripts\python.exe' -B '.\run.py' --help
+```
 
-`data/input.csv` は利用者が手元で用意する入力原本で、顧客情報や実データが入る可能性があるためGit管理対象外です。`data/`・`output/`・`logs/` は `.gitkeep` 以外を除外し、CSVは保存場所を問わず原則除外しています。
+## Public sample data
 
-CSVの公開例外は `samples/public/example.csv` だけです。サンプルを増やす場合も、完全な架空データであることを確認してから `.gitignore` にファイル名を個別に追加してください。
+[samples/public/example.csv](samples/public/example.csv) contains **entirely fictional data**. Names are artificial record labels, and email values use the example domain `example.com` or deliberately invalid strings. No real people or companies are represented.
 
-**実データ・出力・ログ・バックアップ・秘密情報をGitHubへコミットしないでください。** 除外対象の強制追加は避け、公開前に追加するファイルと内容を確認してください。`.env.example` にも実際の認証情報を入れず、説明用の値だけを記載します。
-
-## 入力CSV仕様
-
-カンマ区切りで、先頭行に以下の列名を入れます。**6列すべて必須**です。列名は大文字・小文字を区別します。列の順序は変更可能です。
-
-| 列 | 仕様 |
+| Sample ID | Demonstrates |
 | --- | --- |
-| `id` | 空欄不可。文字列として比較し、先頭の0を保持。大文字・小文字を区別 |
-| `name` | 空欄不可。前後の空白以外は保持 |
-| `email` | 空欄不可。一般的なASCIIメール形式。例: `test@example.com` |
-| `date` | 空欄不可。`2026-09-13`、`2026-9-3`、`2026/9/3`、`20260903` など、年先頭の形式 |
-| `amount` | 空欄不可。半角数字の整数・小数。例: `100`、`-12.50`、`+5`、`.5` |
-| `category` | 空欄不可。カテゴリの許可リストは設けない |
+| `S001` | Trimming whitespace and normalizing a slash-separated date |
+| `S002` | Normalizing an eight-digit date and accepting a zero amount |
+| `S003` | Accepting a valid leap day and a negative decimal amount |
+| `D001`, two rows | Flagging every occurrence of a duplicate ID |
+| `E001` | A missing required name |
+| `E002` | An invalid email format |
+| `E003` | A date that does not exist |
+| `E004` | A nonnumeric amount |
+| `E005` | Reporting several problems in one row |
 
-- 重複IDは空白除去後に判定し、**最初の行を含む同じIDの行すべて**を異常行にします。3行が同じIDなら重複件数は3件です。空欄IDは重複件数に含めません。
-- メールは実在・到達可能性を確認しません。引用符付きローカル部、国際化メール、ドットのないドメイン等は対象外です。
-- 日付はうるう年を含め実在性を検証します。月日年などの曖昧な形式、日時や時刻、和暦は受け付けません。
-- 数値に桁区切り、通貨記号、指数表記、全角数字、`NaN`、無限大、末尾だけの小数点は使えません。負数を許可します。丸めや数値の再書式化は行わず、`001.2300` などの表記と精度を保持します。
-- 追加列は保持し、値の前後の空白を除去します。出力予約列 `error_reason` は入力に使えません。
-- ヘッダーの前後の空白も除去します。空の列名・重複列名はファイル全体のエラーです。
-- 完全な空行は件数に含めません。`,,,,,` のような空欄レコードは1件の異常行です。
-- カンマ・改行を含む値はダブルクォートで囲み、値内のダブルクォートは2つ重ねます。
-- ヘッダーとデータの列数が異なる場合やCSV構造が壊れている場合は、情報欠落を避けるため処理全体を中止します。
+The sample's CLI behavior and documented counts are covered by an automated test in an isolated temporary project.
 
-次は入力形式を示す短い架空例です。動作確認には上記の公開用サンプルを使用してください。
+## Input schema and validation rules
+
+Use a comma-separated CSV with a header row. **All six fields below are required.** Column names are case-sensitive; column order can vary.
 
 ```csv
 id,name,email,date,amount,category
-001,サンプル担当,test@example.com,2026/9/13,1200.50,備品
-002,架空担当,invalid,2026-02-30,abc,その他
 ```
 
-## 出力ファイル
-
-| ファイル | 内容 |
+| Field | Rules |
 | --- | --- |
-| `output/valid.csv` | すべての検証を通った行。入力列の順序を維持 |
-| `output/errors.csv` | 異常行。末尾に `error_reason` 列を追加 |
-| `logs/validation_<実行ID>.log` | 実行ごとのログ。ファイル名の時刻はUTC、ログ内時刻はPCのローカル時刻 |
-| `output/.runs/<実行ID>/` | 前回出力のバックアップ、失敗時の作業ファイル |
+| `id` | Nonblank text. Leading zeros are preserved; comparison is case-sensitive. |
+| `name` | Nonblank text. Content is preserved apart from leading and trailing whitespace. |
+| `email` | A common ASCII email format, such as `test@example.com`. |
+| `date` | A real calendar date in year-first form: `2026-09-13`, `2026-9-3`, `2026/9/3`, or `20260903`. |
+| `amount` | An ASCII integer or decimal, optionally signed: `100`, `-12.50`, `+5`, or `.5`. |
+| `category` | Nonblank text. There is no fixed category allowlist. |
 
-出力CSVはExcelでも日本語を扱いやすいUTF-8 BOM付き、改行はCRLFです。正常／異常それぞれの入力順序を保ちます。該当行が0件でもヘッダーを出力します。
+**Trimming and preservation**
 
-`error_reason` の例: `email: メールアドレスの形式が不正 | date: 日付の形式または日付が不正 | amount: 有効な数値ではありません`
+Leading and trailing whitespace is removed from every field, including spaces, tabs, line breaks, and full-width spaces. Header names are trimmed too. Additional columns are retained and trimmed. Values inside a field are otherwise preserved, except for date normalization.
 
-異常行にも空白除去と、可能な場合の日付正規化を適用します。不正な値はそのまま残し、元のCSVは保持します。
+**Duplicate IDs**
 
-**Excelでの確認:** CSVのダブルクリックでは先頭の0が消えたり、`=`・`+`・`-`・`@` で始まる値が数式等として解釈されたりすることがあります。本ツールは値の意味を保持し、数式の無害化は行いません。信頼できないCSVはダブルクリックせず、Excelの「データ」→「テキストまたはCSVから」で各列を文字列として取り込んでください。
+Duplicates are detected after trimming. Every row sharing an ID is an error, **including the first occurrence**. Three rows with the same ID count as three duplicate rows. Blank IDs are required-field errors and do not contribute to the duplicate count.
 
-## エラー処理
+**Dates and amounts**
 
-| 終了コード | 意味と対処 |
+Valid dates are normalized to `YYYY-MM-DD`, with leap-year validation. Ambiguous month-first or day-first formats, timestamps, times, and Japanese era dates are not supported.
+
+Amounts cannot contain thousands separators, currency symbols, exponent notation, full-width digits, underscores, `NaN`, infinity, or a trailing decimal point without digits. Negative values are allowed. Amounts are validated without rounding or reformatting, so a value such as `001.2300` keeps its precision and representation.
+
+**Email scope**
+
+Email validation checks syntax only; it performs no DNS lookup, delivery check, or email sending. Internationalized addresses, quoted local parts, and domains without a dot are outside the supported format.
+
+**CSV structure**
+
+- Entirely blank lines are skipped. A record such as `,,,,,` is one invalid row.
+- Quote fields containing commas or line breaks with double quotes. Escape a double quote inside a field by doubling it.
+- Empty or duplicate header names are rejected.
+- `error_reason` is reserved for output and cannot appear in the input header.
+- Missing required columns, inconsistent field counts, or malformed CSV stop the entire run rather than silently discarding data.
+- A file containing only the required header is valid and produces zero data rows. An empty file, or a BOM-only file, is a processing error.
+
+## Output and error reporting
+
+| Path | Contents |
 | --- | --- |
-| `0` | 完了。異常行なし（ヘッダーのみのCSVを含む） |
-| `1` | 完了。異常行あり。`errors.csv` の理由を確認 |
-| `2` | 処理中止、または引数不正。コンソールの説明とログを確認 |
+| `output/valid.csv` | Rows that pass every check, retaining the input column order |
+| `output/errors.csv` | Invalid rows, with an appended `error_reason` column |
+| `logs/validation_<run-id>.log` | A separate processing log for each run |
+| `output/.runs/<run-id>/` | Previous-output backups and, after a failure, staging files |
 
-直後に `$LASTEXITCODE` を入力すると終了コードを確認できます。コード1は処理失敗ではなく、データの修正が必要という意味です。
+Both output CSVs use **UTF-8 with a BOM and CRLF line endings**. Each group retains its input row order. Headers are written even when a group has no data rows.
 
-- **空CSV／必要列不足:** 0バイトやBOMのみはエラーです。ヘッダーのみなら0件で正常終了します。中止時に既存の出力を空ファイルへ置き換えません。
-- **読み書き不可:** 入力の存在、フォルダー権限、空き容量を確認し、出力CSVをExcel等で開いていたら閉じて再実行してください。
-- **文字コード不一致:** `--encoding cp932` または既定のUTF-8で再実行してください。
-- **同時実行:** 同じプロジェクトで複数起動すると後からの処理を拒否します。強制終了で `logs/.csv-validator.lock` が残った場合は、他の処理が動いていないことを確認してから、そのファイルだけをエクスプローラーで別名へ変更して再実行してください。
-- **復元失敗／突然の電源断:** `output/.runs/<実行ID>/*.previous` が直前の出力です。2ファイルの更新途中で強制終了すると、出力が異なる実行の組み合わせになる場合があります。ロックを確認して再実行するか、バックアップから手動復元してください。
+Error rows receive the same whitespace trimming and, where possible, date normalization. Invalid values remain available for inspection. Multiple reasons are joined with ` | ` in `error_reason`, for example:
 
-ログフォルダーへ書き込めない場合や、同時実行を拒否した場合は、新しいログを作れずコンソールだけで通知します。
+```text
+email: メールアドレスの形式が不正 | date: 日付の形式または日付が不正
+```
 
-## テスト方法
+This reports an invalid email format and an invalid date on the same row. The original input is preserved.
 
-テスト用パッケージだけを `.venv` に導入します。以下の環境変数はこのPowerShellプロセスにだけ有効で、OS設定を変更しません。一時領域もプロジェクト内に置き、pipキャッシュは作りません。
+Logs and console messages report counts, timestamps, and diagnostic messages **without printing sensitive CSV row values**. Log filenames use UTC timestamps; timestamps inside logs use the PC's local time.
+
+### Exit codes and troubleshooting
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Processing completed with no invalid rows, including a header-only input |
+| `1` | Processing completed with invalid rows; inspect `errors.csv` |
+| `2` | Processing stopped, or command-line arguments were invalid |
+
+For a file or encoding error, check that the input exists, the selected encoding is correct, the project folder is writable, and sufficient disk space is available. Close output CSVs in Excel or other applications before retrying.
+
+A structural input error leaves previous output files in place. If the log directory cannot be written, or a concurrent run is rejected, the application may report the problem only in the console.
+
+## Safety and privacy
+
+- **Local-only processing:** the application has no networking, external AI/API integration, or external-command execution feature.
+- **Input preservation:** the input is opened read-only and is never overwritten, moved, or deleted by the tool.
+- **Scoped writes:** application output is limited to the project's `output/` and `logs/` folders. Linked input/output paths, including symbolic links, junctions, and hard-linked files, are rejected.
+- **Backup and recovery:** both new outputs are staged first. Existing outputs are copied to `output/.runs/<run-id>/*.previous` before replacement. If an ordinary replacement operation fails, the application attempts to restore any output it already replaced.
+- **Controlled cleanup:** deletion is limited to the lock created by the run and a newly created output that must be removed during rollback. There is no bulk deletion of input files or folders.
+- **Concurrent-run protection:** a lock prevents two instances from processing the same project at once.
+
+After a forced termination, `logs/.csv-validator.lock` may remain. Confirm that no other instance is running, then rename **only that lock file** in File Explorer before retrying.
+
+If recovery itself fails, or power is lost during output replacement, inspect the matching `*.previous` backups. Resolve the stale lock before rerunning, or restore the outputs manually. Updating the two output files is **not a crash-safe, all-or-nothing transaction**.
+
+Outputs and backups still contain input-derived data. The tool does not anonymize or encrypt them; apply your organization's access and retention policies.
+
+### Keep real data out of GitHub
+
+`data/input.csv` is intentionally excluded from Git because it may contain customer or operational data. The `data/`, `output/`, and `logs/` directories are ignored except for their `.gitkeep` placeholders. CSV files are excluded by default wherever they are stored.
+
+The only public CSV exception is `samples/public/example.csv`. Add further exceptions individually, and only after checking that each file is entirely fictional. The virtual environment, temporary files, logs, backups, and common secret-file formats are also excluded. `.env.example` may be tracked, but must contain example values only.
+
+**Do not commit real data, generated outputs, logs, backups, or credentials.** Avoid force-adding ignored files. Ignore rules do not remove files that are already tracked, so review the files and contents selected for publication.
+
+### Opening CSVs in Excel
+
+Double-clicking a CSV may strip leading zeros or interpret values beginning with `=`, `+`, `-`, or `@` as formulas or other special values. This tool preserves data values and **does not neutralize spreadsheet formulas**.
+
+For untrusted data, use Excel's **Data → From Text/CSV** import flow and set the columns to **Text** instead of opening the file directly.
+
+## Environment and tests
+
+Supported target: **Windows 10 or 11 with Python 3.12+**. Python 3.12 is the minimum because the path-safety checks use `Path.is_junction()`. Verification has been performed on Windows with **Python 3.13.15 and pytest 8.4.2**; this is not a claim of testing every Windows/Python combination.
+
+The application uses only the Python standard library. `requirements.txt` pins pytest for testing.
+
+If test dependencies have not been installed, run the following from the project root. Environment variables here affect only the current PowerShell process; they do not change OS settings. Temporary installation files stay inside the project, and pip caching is disabled.
 
 ```powershell
-# README.mdのあるプロジェクトルートで実行
 New-Item -ItemType Directory -Path '.tmp' -Force | Out-Null
 $env:TEMP = Join-Path (Get-Location) '.tmp'
 $env:TMP = $env:TEMP
 $env:PYTHONDONTWRITEBYTECODE = '1'
 & '.\.venv\Scripts\python.exe' -m pip --isolated install --no-cache-dir --disable-pip-version-check -r requirements.txt
-& '.\.venv\Scripts\python.exe' -B -m pytest -q
 ```
 
-初回のpytest取得にはパッケージ配布元への通信が必要ですが、CSVを読み取ったり送信したりする処理はありません。導入後の検証ツールはオフラインで動作します。
+Installing pytest initially requires access to a package distribution service. That installation does not read or send CSV data. Once dependencies are available, validation and tests can run offline.
 
-テストは架空データのみを使い、既存の `data/input.csv` を変更しません。実行ごとに `.test-tmp/<ランダムID>/` を新規作成します。既存テスト結果の削除を防ぐため `--basetemp` 指定はこの設定で置き換えます。
+Run all tests:
 
-指定の8項目（正常データ、必須空欄、重複ID、不正メール、不正日付、不正数値、空CSV、必要列不足）に加え、文字コード、複数エラー、入出力整合性、バックアップ、更新失敗時の復元、ログの情報保護、同時実行、パスの安全性、CLIをテストします。公開用サンプルも一時フォルダーへコピーし、READMEに記載した件数とエラー内容を確認します。
+```powershell
+& '.\.venv\Scripts\python.exe' -B -m pytest -q -p no:cacheprovider
+```
 
-## フォルダー構成
+**Verified result: 82 tests passing, with no failures or skips.**
+
+Coverage includes valid data, every required field, duplicate IDs, invalid emails/dates/amounts, empty files, missing columns, multiple error reasons, encodings, extra columns, quoting, input preservation, output backups, recovery on write failure, private logging, concurrency, path checks, and CLI behavior.
+
+Tests use fictional data in a fresh `.test-tmp/<random-id>/` directory and do not modify the existing input, outputs, or logs. The test configuration overrides `--basetemp` with a fresh project-local path to avoid deleting an existing test directory. See [REVIEW.md](REVIEW.md) for the detailed review record, currently in Japanese.
+
+## Project structure
 
 ```text
 csv-data-automation/
-├── run.py                     # 起動用
+├── README.md                   # English documentation
+├── README_ja.md                # Japanese documentation
+├── REVIEW.md                   # Verification record (Japanese)
+├── run.py                      # Entry point
 ├── src/csv_validator/
 │   ├── __init__.py
-│   ├── __main__.py             # 引数と終了コード
-│   ├── validation.py           # 検証ルール
-│   └── application.py          # CSV入出力・ログ・保護
+│   ├── __main__.py             # CLI arguments and exit codes
+│   ├── validation.py           # Validation and normalization rules
+│   └── application.py          # CSV I/O, logging, and recovery
 ├── tests/
-│   ├── conftest.py             # 一時領域をプロジェクト内に限定
+│   ├── conftest.py             # Project-local temporary directories
 │   ├── test_validation.py
 │   ├── test_application.py
-│   └── test_public_sample.py   # 公開サンプルのCLI検証
-├── samples/public/example.csv # 公開可能な架空サンプル
-├── data/input.csv              # 入力原本・公開しない
-├── output/                     # 結果・バックアップ・公開しない
-├── logs/                       # ログ・公開しない
-├── .venv/                      # 専用Python環境
-├── .test-tmp/                  # テストの作業領域・公開しない
-├── .tmp/                       # パッケージ導入の一時領域
+│   └── test_public_sample.py   # Public sample CLI verification
+├── samples/public/example.csv # Fictional, publishable sample
+├── data/input.csv              # Local input; excluded from Git
+├── output/                     # Results and backups; excluded from Git
+├── logs/                       # Logs; excluded from Git
+├── .venv/                      # Project-local Python environment
+├── .test-tmp/                  # Isolated test artifacts
+├── .tmp/                       # Installation temporary files
 ├── pytest.ini
 ├── requirements.txt
-├── REVIEW.md                   # 公開前の検証記録
-├── .gitignore
-└── README.md
+└── .gitignore
 ```
 
-`data/`・`output/`・`logs/` の `.gitkeep` は空のフォルダーをGitで保持するためのファイルです。
+The `.gitkeep` files preserve empty `data/`, `output/`, and `logs/` directories in Git. The local input is created by the user or the sample-copy step.
 
-## 制限事項と今後の改善
+## Known limitations and future improvements
 
-全行をメモリに読み込みます。非常に大きなCSV向けの性能保証はありません。1フィールドの上限はPythonのCSVパーサーの既定値（通常131,072文字）です。任意の列設定・カテゴリ辞書・金額範囲の業務ルールは未実装です。
+- All rows are loaded into memory. Very large CSV files have not been performance-tested.
+- The per-field size limit is the Python CSV parser's default, normally 131,072 characters.
+- Validation rules are fixed. Configurable schemas, category dictionaries, and business-specific amount ranges are not implemented.
+- The two output replacements are not one atomic transaction. Forced termination or power loss can leave outputs from different runs.
+- Path checks are not a security sandbox against a malicious process changing paths during a run. Use a trusted local project directory.
+- There is no email-deliverability check, spreadsheet-formula neutralization, anonymization, or encryption.
+- CLI messages, logs, and error reasons remain in Japanese.
+- Logs, backups, and test artifacts accumulate without automatic cleanup. Review and remove unneeded artifacts manually according to your retention policy.
 
-出力2ファイルの更新は、強制終了や電源断をまたぐ完全なトランザクションではありません。悪意ある別プロセスが検証と書き込みの間にパスを変更する攻撃への隔離機構もありません。信頼できるローカルフォルダーで使用してください。
-
-ログ・バックアップ・テスト一時領域は自動削除せず蓄積します。不要なものは保管ルールに沿って確認後にエクスプローラーから整理してください。
-
-ポートフォリオとして次に追加するとよい機能は、架空データによる操作画面例、Windows/Pythonバージョン別のCI、ルール設定ファイル、大容量向けの段階読み込み、Excel閲覧用の数式無害化オプションです。公開時には実データを含めず、利用条件に合うライセンスを選んでください。
+Potential next steps include Windows/Python CI coverage, configurable business rules, large-file processing, an optional Excel-safe export mode, and a short walkthrough using fictional data. Choose an appropriate license before distributing the project for reuse.
