@@ -2,6 +2,8 @@
 
 # ローカルCSVデータ検証ツール
 
+[![Tests](https://github.com/supesharutakaya-cpu/csv-data-automation/actions/workflows/tests.yml/badge.svg)](https://github.com/supesharutakaya-cpu/csv-data-automation/actions/workflows/tests.yml)
+
 企業のCSVをローカルPC上で検証し、正常行と修正が必要な行に分離するWindows向けPythonツールです。**外部AI/APIへCSVデータを送信しない、ローカル処理専用のツールです。**実行時はPython標準ライブラリだけを使用します。
 
 ## できること
@@ -200,6 +202,14 @@ id,name,email,date,amount,category
 
 ログフォルダーへ書き込めない場合や、同時実行を拒否した場合は、新しいログを作れずコンソールだけで通知します。
 
+## GitHub Actionsによる自動テスト
+
+[Testsワークフロー](.github/workflows/tests.yml) は、push時とPull Request時に `windows-latest` 上で **Python 3.12・3.13** のpytestを実行します。テストが失敗した場合は、そのジョブとワークフローも失敗します。
+
+CIは架空のテストデータと公開サンプルだけを使用し、顧客CSVや登録済みsecretsは使用しません。artifactのアップロードも行いません。権限は `contents: read` のみで、checkout時の認証情報を永続保存しません。各ジョブの仮想環境に `requirements.txt` のテスト依存関係を導入します。
+
+タイトル下のバッジからGitHub上の実行結果を確認できます。**82件PASSはローカルで確認済みの結果**です。GitHub上の初回結果は、このワークフローをpushして実行された後に表示されます。CIはツールや依存関係の取得に通信を使いますが、CSV検証ツール自体のローカル処理方針は変わりません。
+
 ## テスト方法
 
 テスト用パッケージだけを `.venv` に導入します。以下の環境変数はこのPowerShellプロセスにだけ有効で、OS設定を変更しません。一時領域もプロジェクト内に置き、pipキャッシュは作りません。
@@ -224,6 +234,7 @@ $env:PYTHONDONTWRITEBYTECODE = '1'
 
 ```text
 csv-data-automation/
+├── .github/workflows/tests.yml # Windows / Python 3.12・3.13のCI
 ├── run.py                     # 起動用
 ├── src/csv_validator/
 │   ├── __init__.py

@@ -2,6 +2,8 @@
 
 # Local CSV Validator
 
+[![Tests](https://github.com/supesharutakaya-cpu/csv-data-automation/actions/workflows/tests.yml/badge.svg)](https://github.com/supesharutakaya-cpu/csv-data-automation/actions/workflows/tests.yml)
+
 Validate business CSV files on a Windows PC, normalize common formatting issues, and separate usable records from rows that need attention.
 
 **Local-only processing. No CSV data is sent to external AI, APIs, or web services. The input file is never overwritten, moved, or deleted by the tool.**
@@ -218,6 +220,14 @@ Double-clicking a CSV may strip leading zeros or interpret values beginning with
 
 For untrusted data, use Excel's **Data → From Text/CSV** import flow and set the columns to **Text** instead of opening the file directly.
 
+## Continuous integration
+
+The [Tests workflow](.github/workflows/tests.yml) runs the automated pytest suite on `windows-latest` with **Python 3.12 and 3.13** for pushes and pull requests. A failed test fails the corresponding job and the workflow.
+
+CI uses fictional test fixtures and the public sample only. It does not use customer CSVs or configured secrets, and it does not upload artifacts. Repository permissions are limited to `contents: read`; checkout credentials are not persisted. Each job installs the test dependencies from `requirements.txt` in a virtual environment.
+
+The badge above links to the workflow's live GitHub results. The existing **82 tests passing** result was verified locally; the first GitHub CI result becomes available after this workflow is pushed and runs. GitHub-hosted CI downloads its tools and dependencies, while the CSV validation application itself remains local-only.
+
 ## Environment and tests
 
 Supported target: **Windows 10 or 11 with Python 3.12+**. Python 3.12 is the minimum because the path-safety checks use `Path.is_junction()`. Verification has been performed on Windows with **Python 3.13.15 and pytest 8.4.2**; this is not a claim of testing every Windows/Python combination.
@@ -252,6 +262,7 @@ Tests use fictional data in a fresh `.test-tmp/<random-id>/` directory and do no
 
 ```text
 csv-data-automation/
+├── .github/workflows/tests.yml # Windows / Python 3.12 and 3.13 CI
 ├── README.md                   # English documentation
 ├── README_ja.md                # Japanese documentation
 ├── REVIEW.md                   # Verification record (Japanese)

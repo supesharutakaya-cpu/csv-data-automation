@@ -1,0 +1,50 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    name: Windows / Python ${{ matrix.python-version }}
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Create project virtual environment
+        run: |
+          python -m venv .venv
+          exit $LASTEXITCODE
+
+      - name: Install test dependencies
+        run: |
+          & '.\.venv\Scripts\python.exe' -m pip --isolated install --no-cache-dir --disable-pip-version-check -r requirements.txt
+          exit $LASTEXITCODE
+
+      - name: Run automated tests
+        run: |
+          & '.\.venv\Scripts\python.exe' -B -X utf8 -m pytest -q -p no:cacheprovider
+          exit $LASTEXITCODE
